@@ -1,0 +1,1797 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yashwanth Veluru - Portfolio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.0/css/lightgallery.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.7.2/vanilla-tilt.min.js"></script>
+  <style>
+    :root {
+      --transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .light-theme {
+      --bg-color: #F9FAFB;
+      --text-color: #111827;
+      --accent-color: #2563EB;
+      --secondary-text: #6B7280;
+      --card-bg: #FFFFFF;
+    }
+
+    .dark-theme {
+      --bg-color: #121212;
+      --text-color: #F9FAFB;
+      --accent-color: #3B82F6;
+      --secondary-text: #9CA3AF;
+      --card-bg: #1E1E1E;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+      background: var(--bg-color);
+      color: var(--text-color);
+      transition: var(--transition);
+    }
+
+    body.sidebar-active {
+      overflow-y: hidden;
+    }
+
+    .cursor {
+      position: fixed;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      background: var(--accent-color);
+      transition: transform 0.2s, background 0.3s ease;
+    }
+
+    .cursor.hovered {
+      transform: scale(2);
+      opacity: 0.5;
+    }
+
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 300px;
+      height: 100vh;
+      padding: 3rem 2rem;
+      background: var(--card-bg);
+      box-shadow: 4px 0 12px rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      backdrop-filter: blur(10px);
+      transition: left 0.3s, background-color 0.3s ease;
+    }
+
+    .sidebar .logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2.2rem;
+      margin-bottom: 4rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--accent-color);
+    }
+
+    .sidebar ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 2.5rem;
+    }
+
+    .sidebar a {
+      text-decoration: none;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--text-color);
+      position: relative;
+      transition: color 0.3s ease;
+    }
+
+    .sidebar a::after {
+      content: '';
+      position: absolute;
+      width: 0;
+      height: 2px;
+      bottom: -5px;
+      left: 0;
+      background: var(--accent-color);
+      transition: width 0.3s;
+    }
+
+    .sidebar a:hover::after {
+      width: 100%;
+    }
+
+    .sidebar a:hover {
+      color: var(--accent-color);
+    }
+
+    .theme-toggle, .edit-toggle {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 2rem;
+      cursor: pointer;
+    }
+
+    .theme-toggle input, .edit-toggle input {
+      display: none;
+    }
+
+    .theme-toggle .slider, .edit-toggle .slider {
+      width: 50px;
+      height: 24px;
+      border-radius: 12px;
+      position: relative;
+      background: var(--secondary-text);
+      transition: background 0.3s ease;
+    }
+
+    .theme-toggle .slider::before {
+      content: '🌙';
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      background: var(--card-bg);
+      transition: transform 0.3s;
+    }
+
+    .edit-toggle .slider::before {
+      content: '🔒';
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      background: var(--card-bg);
+      transition: transform 0.3s;
+    }
+
+    .theme-toggle input:checked + .slider::before {
+      content: '☀️';
+      transform: translateX(26px);
+    }
+
+    .edit-toggle input:checked + .slider::before {
+      content: '✏️';
+      transform: translateX(26px);
+    }
+
+    .theme-toggle input:checked + .slider, .edit-toggle input:checked + .slider {
+      background: var(--accent-color);
+    }
+
+    main {
+      margin-left: 300px;
+      padding: 3rem;
+      overflow-y: auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    section {
+      min-height: 100vh;
+      padding: 5rem 3rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      z-index: 2;
+      background: var(--bg-color);
+      transition: background-color 0.3s ease;
+    }
+
+    #home {
+      text-align: center;
+      position: relative;
+      z-index: 3;
+    }
+
+    .home-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      background: linear-gradient(45deg, rgba(var(--accent-color-rgb, 59, 130, 246), 0.3), rgba(var(--accent-color-rgb, 59, 130, 246), 0.1));
+      background-size: cover;
+      background-position: center;
+      transform: translateY(0);
+      transition: transform 0.5s;
+    }
+
+    #home h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 5rem;
+      margin-bottom: 1.5rem;
+      color: var(--accent-color);
+      text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.15);
+    }
+
+    #home p {
+      font-size: 1.6rem;
+      max-width: 1000px;
+      line-height: 1.8;
+      color: var(--secondary-text);
+    }
+
+    #about {
+      text-align: center;
+      background: var(--card-bg);
+      backdrop-filter: blur(5px);
+    }
+
+    #about .profile-pic {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      margin-bottom: 2rem;
+      object-fit: cover;
+      border: 3px solid var(--accent-color);
+      transition: transform 0.3s, border-color 0.3s ease;
+    }
+
+    #about .profile-pic:hover {
+      transform: scale(1.05);
+    }
+
+    #about .profile-pic-input {
+      display: none;
+      margin: 1rem auto;
+      width: 200px;
+    }
+
+    #about .profile-pic-input.visible {
+      display: block;
+    }
+
+    #about h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 3.5rem;
+      margin-bottom: 2rem;
+      color: var(--accent-color);
+    }
+
+    #about p, #about .skill, .project-card h3, .project-card p, .testimonial-card p, .testimonial-card .author {
+      cursor: text;
+    }
+
+    #about p[contenteditable="true"]:focus, #about .skill[contenteditable="true"]:focus, .project-card h3[contenteditable="true"]:focus, .project-card p[contenteditable="true"]:focus, .testimonial-card p[contenteditable="true"]:focus, .testimonial-card .author[contenteditable="true"]:focus {
+      outline: 2px solid var(--accent-color);
+      background: rgba(var(--accent-color-rgb, 59, 130, 246), 0.1);
+    }
+
+    #about p {
+      font-size: 1.4rem;
+      max-width: 1100px;
+      line-height: 1.9;
+      margin-bottom: 2.5rem;
+      color: var(--secondary-text);
+    }
+
+    #about .skills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      justify-content: center;
+    }
+
+    #about .skill {
+      padding: 0.8rem 2rem;
+      border-radius: 30px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      background: var(--accent-color);
+      color: var(--card-bg);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    #about .skill:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    #projects {
+      text-align: center;
+    }
+
+    #projects h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 3.5rem;
+      margin-bottom: 3rem;
+      color: var(--accent-color);
+    }
+
+    .project-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+      gap: 3rem;
+      max-width: 1600px;
+      width: 100%;
+    }
+
+    .project-card {
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+      background: var(--card-bg);
+      transition: transform 0.5s, box-shadow 0.5s;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .project-card:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    .project-card img {
+      width: 100%;
+      height: 350px;
+      object-fit: cover;
+      transition: transform 0.5s;
+    }
+
+    .project-card:hover img {
+      transform: scale(1.05);
+    }
+
+    .project-card h3 {
+      font-family: 'Inter', sans-serif;
+      font-size: 2rem;
+      padding: 1.5rem 2rem;
+      color: var(--accent-color);
+    }
+
+    .project-card p {
+      padding: 0 2rem 1rem;
+      font-size: 1.2rem;
+      line-height: 1.7;
+      color: var(--secondary-text);
+    }
+
+    .project-card .delete-button {
+      display: none;
+      padding: 0.5rem 1rem;
+      margin: 0 2rem 1rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      background: #EF4444;
+      color: #FFFFFF;
+      cursor: pointer;
+      transition: transform 0.3s;
+    }
+
+    .project-card .delete-button.visible {
+      display: block;
+    }
+
+    .project-card .delete-button:hover {
+      transform: translateY(-3px);
+    }
+
+    .project-card input[type="file"] {
+      display: none;
+      margin: 1rem 2rem;
+      width: calc(100% - 4rem);
+    }
+
+    .project-card input[type="file"].visible {
+      display: block;
+    }
+
+    #testimonials {
+      text-align: center;
+    }
+
+    #testimonials h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 3.5rem;
+      margin-bottom: 3rem;
+      color: var(--accent-color);
+    }
+
+    .testimonial-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 2.5rem;
+      max-width: 1400px;
+      width: 100%;
+    }
+
+    .testimonial-card {
+      padding: 2rem;
+      border-radius: 16px;
+      background: var(--card-bg);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      transition: transform 0.3s;
+    }
+
+    .testimonial-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .testimonial-card p {
+      font-size: 1.1rem;
+      line-height: 1.7;
+      margin-bottom: 1rem;
+      color: var(--secondary-text);
+    }
+
+    .testimonial-card .author {
+      font-weight: 600;
+      font-size: 1rem;
+      color: var(--accent-color);
+    }
+
+    .testimonial-card .delete-button {
+      display: none;
+      padding: 0.5rem 1rem;
+      margin: 1rem auto;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      background: #EF4444;
+      color: #FFFFFF;
+      cursor: pointer;
+      transition: transform 0.3s;
+    }
+
+    .testimonial-card .delete-button.visible {
+      display: block;
+    }
+
+    .testimonial-card .delete-button:hover {
+      transform: translateY(-3px);
+    }
+
+    #contact {
+      transform: skewY(-4deg);
+      padding: 7rem 3rem;
+      background: var(--card-bg);
+    }
+
+    #contact > * {
+      transform: skewY(4deg);
+    }
+
+    #contact h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 3.5rem;
+      margin-bottom: 3rem;
+      text-align: center;
+      color: var(--accent-color);
+    }
+
+    #contact form {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+      max-width: 800px;
+      width: 100%;
+    }
+
+    #contact input, #contact textarea {
+      padding: 1.5rem;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      border: 2px solid var(--secondary-text);
+      background: var(--bg-color);
+      color: var(--text-color);
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    #contact input:focus, #contact textarea:focus {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 8px rgba(var(--accent-color-rgb, 59, 130, 246), 0.3);
+      outline: none;
+    }
+
+    #contact input::placeholder, #contact textarea::placeholder {
+      color: var(--secondary-text);
+    }
+
+    #contact button {
+      padding: 1.5rem;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.3rem;
+      font-weight: 600;
+      background: var(--accent-color);
+      color: var(--card-bg);
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.3s;
+    }
+
+    #contact button:hover {
+      transform: translateY(-5px);
+      background: var(--accent-color);
+      filter: brightness(1.1);
+    }
+
+    .save-changes, .add-button {
+      display: none;
+      padding: 1rem 2rem;
+      margin: 2rem auto;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      background: var(--accent-color);
+      color: var(--card-bg);
+      cursor: pointer;
+      transition: transform 0.3s;
+    }
+
+    .save-changes.visible, .add-button.visible {
+      display: block;
+    }
+
+    .save-changes:hover, .add-button:hover {
+      transform: translateY(-5px);
+    }
+
+    .add-form {
+      display: none;
+      background: var(--card-bg);
+      padding: 2rem;
+      border-radius: 12px;
+      margin: 2rem auto;
+      max-width: 800px;
+      width: 100%;
+    }
+
+    .add-form.visible {
+      display: block;
+    }
+
+    .add-form input, .add-form textarea {
+      width: 100%;
+      padding: 1rem;
+      margin: 0.5rem 0;
+      border: 2px solid var(--secondary-text);
+      border-radius: 8px;
+      background: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    .add-form button {
+      padding: 1rem 2rem;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      background: var(--accent-color);
+      color: var(--card-bg);
+      cursor: pointer;
+      transition: transform 0.3s;
+    }
+
+    .add-form button:hover {
+      transform: translateY(-5px);
+    }
+
+    /* Project Detail Modal */
+    .project-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 2000;
+      overflow-y: auto;
+    }
+
+    .project-modal.visible {
+      display: block;
+    }
+
+    .project-modal-content {
+      background: var(--card-bg);
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 3rem;
+      border-radius: 12px;
+      position: relative;
+    }
+
+    .project-modal-content .close-button {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      font-size: 2rem;
+      color: var(--accent-color);
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+
+    .project-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .project-header img {
+      width: 100%;
+      max-height: 400px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin-bottom: 1.5rem;
+    }
+
+    .project-header h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 3rem;
+      color: var(--accent-color);
+    }
+
+    .project-section {
+      margin-bottom: 3rem;
+    }
+
+    .project-section h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2rem;
+      color: var(--accent-color);
+      margin-bottom: 1rem;
+    }
+
+    .project-section p {
+      font-size: 1.2rem;
+      line-height: 1.8;
+      color: var(--secondary-text);
+    }
+
+    .project-section .edit-input, .project-section .edit-textarea, .project-section .edit-file {
+      display: none;
+      width: 100%;
+      padding: 1rem;
+      margin: 0.5rem 0;
+      border: 2px solid var(--secondary-text);
+      border-radius: 8px;
+      background: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    .project-section .edit-input.visible, .project-section .edit-textarea.visible, .project-section .edit-file.visible {
+      display: block;
+    }
+
+    .project-section ul {
+      list-style: disc;
+      padding-left: 2rem;
+      color: var(--secondary-text);
+    }
+
+    .project-section ul li {
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .gallery img {
+      width: 100%;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .file-list {
+      margin-top: 1rem;
+    }
+
+    .file-list a {
+      display: block;
+      margin: 0.5rem 0;
+      color: var(--accent-color);
+      text-decoration: none;
+    }
+
+    .file-list a:hover {
+      text-decoration: underline;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .tag {
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      background: var(--accent-color);
+      color: var(--card-bg);
+      font-size: 1rem;
+    }
+
+    .button {
+      display: inline-block;
+      padding: 1rem 2rem;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      background: var(--accent-color);
+      color: var(--card-bg);
+      text-decoration: none;
+      margin: 1rem 0.5rem;
+      transition: transform 0.3s;
+    }
+
+    .button:hover {
+      transform: translateY(-5px);
+    }
+
+    .modal-save {
+      display: none;
+      padding: 1rem 2rem;
+      margin: 2rem auto;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      background: var(--accent-color);
+      color: var(--card-bg);
+      cursor: pointer;
+      transition: transform 0.3s;
+    }
+
+    .modal-save.visible {
+      display: block;
+    }
+
+    .modal-save:hover {
+      transform: translateY(-5px);
+    }
+
+    footer {
+      text-align: center;
+      padding: 2.5rem;
+      margin-left: 300px;
+      background: var(--card-bg);
+      color: var(--secondary-text);
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .mobile-nav-toggle {
+      display: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 1001;
+      color: var(--accent-color);
+      transition: color 0.3s ease;
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: fixed;
+        top: 0;
+        left: -100%;
+        padding: 2rem;
+      }
+
+      .sidebar.active {
+        left: 0;
+      }
+
+      main, footer {
+        margin-left: 0;
+      }
+
+      .mobile-nav-toggle {
+        display: block;
+      }
+
+      #home h1, #about h2, #projects h2, #testimonials h2, #contact h2 {
+        font-size: 2.8rem;
+      }
+
+      #home p, #about p {
+        font-size: 1.2rem;
+      }
+
+      .project-grid, .testimonial-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .project-card {
+        transform: none !important;
+      }
+
+      #about .profile-pic {
+        width: 120px;
+        height: 120px;
+      }
+
+      .add-form {
+        padding: 1.5rem;
+      }
+
+      .add-form input, .add-form textarea {
+        font-size: 1rem;
+      }
+
+      .project-modal-content {
+        margin: 1rem;
+        padding: 2rem;
+      }
+
+      .project-header h1 {
+        font-size: 2.5rem;
+      }
+
+      .project-section h2 {
+        font-size: 1.8rem;
+      }
+
+      .project-section p, .project-section ul li {
+        font-size: 1.1rem;
+      }
+
+      .gallery {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body class="dark-theme">
+  <div class="cursor"></div>
+  <span class="mobile-nav-toggle" aria-label="Toggle navigation">☰</span>
+  <nav class="sidebar">
+    <div class="logo">Yashwanth Veluru</div>
+    <ul>
+      <li><a href="#home">Home</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#projects">Projects</a></li>
+      <li><a href="#testimonials">Testimonials</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+    <label class="theme-toggle" aria-label="Toggle theme">
+      <input type="checkbox" id="themeToggle">
+      <span class="slider"></span>
+    </label>
+    <label class="edit-toggle" aria-label="Toggle edit mode">
+      <input type="checkbox" id="editToggle">
+      <span class="slider"></span>
+    </label>
+  </nav>
+
+  <main>
+    <section id="home">
+      <div class="home-bg"></div>
+      <h1>Unleash Creativity</h1>
+      <p>Hi, I'm Yashwanth Veluru, a visionary data scientist and developer crafting impactful digital solutions. Let’s create something extraordinary.</p>
+    </section>
+
+    <section id="about">
+      <img class="profile-pic" src="https://via.placeholder.com/150" alt="Yashwanth Veluru">
+      <input type="file" accept="image/*" class="profile-pic-input" id="profilePicInput" aria-label="Upload profile picture">
+      <h2>About Me</h2>
+      <p id="bio">I’m Yashwanth Veluru, a Data Science graduate from the University of the Pacific. I fuse data-driven insights with technology to build solutions that captivate and perform. With a passion for innovation, I transform ideas into impactful realities.</p>
+      <p id="hobbies">When not analyzing data or coding, I’m exploring new tools, diving into machine learning advancements, or collaborating on open-source projects.</p>
+      <div class="skills" id="skills">
+        <span class="skill">Data Science</span>
+        <span class="skill">Machine Learning</span>
+        <span class="skill">Web Development</span>
+        <span class="skill">Data Visualization</span>
+      </div>
+      <button class="save-changes" id="saveAbout" aria-label="Save about section changes">Save Changes</button>
+    </section>
+
+    <section id="projects">
+      <h2>My Work</h2>
+      <div class="project-grid" id="projectGrid">
+        <!-- Project cards will be populated by JavaScript -->
+      </div>
+      <button class="add-button" id="addProjectButton" aria-label="Add new project">Add New Project</button>
+      <div class="add-form" id="addProjectForm">
+        <input type="text" id="projectTitle" placeholder="Project Title" required aria-label="Project title">
+        <textarea id="projectSummary" placeholder="Project Summary" rows="4" required aria-label="Project summary"></textarea>
+        <textarea id="problemStatement" placeholder="Problem Statement" rows="4" required aria-label="Problem statement"></textarea>
+        <textarea id="datasetDetails" placeholder="Dataset Details" rows="4" required aria-label="Dataset details"></textarea>
+        <input type="file" id="datasetFiles" accept=".csv,.pdf" multiple aria-label="Upload dataset files">
+        <input type="text" id="toolsTechnologies" placeholder="Tools & Technologies (comma-separated)" required aria-label="Tools and technologies">
+        <textarea id="workflow" placeholder="Workflow / Methodology" rows="6" required aria-label="Workflow"></textarea>
+        <input type="file" id="visualizations" accept="image/*" multiple aria-label="Upload visualizations">
+        <textarea id="resultsImpact" placeholder="Results & Impact" rows="4" required aria-label="Results and impact"></textarea>
+        <textarea id="challengesLearnings" placeholder="Challenges & Learnings" rows="4" required aria-label="Challenges and learnings"></textarea>
+        <textarea id="nextSteps" placeholder="Next Steps / Future Work" rows="4" required aria-label="Next steps"></textarea>
+        <input type="url" id="githubLink" placeholder="GitHub Link" aria-label="GitHub link">
+        <input type="url" id="demoLink" placeholder="Live Demo Link" aria-label="Live demo link">
+        <input type="text" id="tags" placeholder="Tags (comma-separated)" aria-label="Tags">
+        <input type="file" id="projectImage" accept="image/*" required aria-label="Upload project thumbnail">
+        <button id="submitProject" aria-label="Submit new project">Submit Project</button>
+      </div>
+      <button class="save-changes" id="saveProjects" aria-label="Save projects changes">Save Changes</button>
+    </section>
+
+    <section id="testimonials">
+      <h2>Testimonials</h2>
+      <div class="testimonial-grid" id="testimonialGrid">
+        <div class="testimonial-card">
+          <p class="quote">"Yashwanth’s data solutions transformed our decision-making process. His expertise is unmatched!"</p>
+          <p class="author">Jane Doe, CEO</p>
+          <button class="delete-button" aria-label="Delete testimonial">Delete Testimonial</button>
+        </div>
+        <div class="testimonial-card">
+          <p class="quote">"Working with Yashwanth was a game-changer. His visualizations made complex data accessible."</p>
+          <p class="author">John Smith, Data Analyst</p>
+          <button class="delete-button" aria-label="Delete testimonial">Delete Testimonial</button>
+        </div>
+      </div>
+      <button class="add-button" id="addTestimonialButton" aria-label="Add new testimonial">Add New Testimonial</button>
+      <div class="add-form" id="addTestimonialForm">
+        <textarea id="testimonialQuote" placeholder="Testimonial Quote" rows="4" required aria-label="Testimonial quote"></textarea>
+        <input type="text" id="testimonialAuthor" placeholder="Author Name" required aria-label="Testimonial author">
+        <button id="submitTestimonial" aria-label="Submit new testimonial">Submit Testimonial</button>
+      </div>
+      <button class="save-changes" id="saveTestimonials" aria-label="Save testimonials changes">Save Changes</button>
+    </section>
+
+    <section id="contact">
+      <h2>Let’s Collaborate</h2>
+      <form action="https://formspree.io/f/yashwanth123" method="POST" id="contactForm">
+        <input type="text" name="name" placeholder="Your Name" required aria-label="Your name">
+        <input type="email" name="email" placeholder="Your Email" required aria-label="Your email">
+        <textarea name="message" placeholder="Your Message" rows="7" required aria-label="Your message"></textarea>
+        <button type="submit" aria-label="Send message">Send Message</button>
+      </form>
+    </section>
+
+    <!-- Project Detail Modal -->
+    <div class="project-modal" id="projectModal">
+      <div class="project-modal-content">
+        <button class="close-button" id="closeModal" aria-label="Close project details">✕</button>
+        <div class="project-header">
+          <img id="modalProjectImage" src="" alt="Project Thumbnail">
+          <input type="file" id="editProjectImage" accept="image/*" class="edit-file" aria-label="Edit project thumbnail">
+          <h1 id="modalProjectTitle"></h1>
+          <input type="text" id="editProjectTitle" class="edit-input" placeholder="Project Title" aria-label="Edit project title">
+        </div>
+        <div class="project-section">
+           <h2>Project Summary</h2>
+          <p id="modalProjectSummary"></p>
+          <textarea id="editProjectSummary" class="edit-textarea" placeholder="Project Summary" aria-label="Edit project summary"></textarea>
+        </div>
+        <div class="project-section">
+          <h2>Problem Statement</h2>
+          <p id="modalProblemStatement"></p>
+          <textarea id="editProblemStatement" class="edit-textarea" placeholder="Problem Statement" aria-label="Edit problem statement"></textarea>
+        </div>
+        <div class="project-section">
+          <h2>Dataset Details</h2>
+          <p id="modalDatasetDetails"></p>
+          <textarea id="editDatasetDetails" class="edit-textarea" placeholder="Dataset Details" aria-label="Edit dataset details"></textarea>
+          <div id="modalDatasetFiles" class="file-list"></div>
+          <input type="file" id="editDatasetFiles" accept=".csv,.pdf" multiple class="edit-file" aria-label="Upload dataset files">
+        </div>
+        <div class="project-section">
+          <h2>Tools & Technologies</h2>
+          <p id="modalToolsTechnologies"></p>
+          <input type="text" id="editToolsTechnologies" class="edit-input" placeholder="Tools & Technologies (comma-separated)" aria-label="Edit tools and technologies">
+        </div>
+        <div class="project-section">
+          <h2>Workflow / Methodology</h2>
+          <p id="modalWorkflow"></p>
+          <textarea id="editWorkflow" class="edit-textarea" placeholder="Workflow / Methodology" aria-label="Edit workflow"></textarea>
+        </div>
+        <div class="project-section">
+          <h2>Visualizations</h2>
+          <div id="modalGallery" class="gallery"></div>
+          <input type="file" id="editVisualizations" accept="image/*,.pdf" multiple class="edit-file" aria-label="Upload visualizations">
+        </div>
+        <div class="project-section">
+          <h2>Results & Impact</h2>
+          <p id="modalResultsImpact"></p>
+          <textarea id="editResultsImpact" class="edit-textarea" placeholder="Results & Impact" aria-label="Edit results and impact"></textarea>
+        </div>
+        <div class="project-section">
+          <h2>Challenges & Learnings</h2>
+          <p id="modalChallengesLearnings"></p>
+          <textarea id="editChallengesLearnings" class="edit-textarea" placeholder="Challenges & Learnings" aria-label="Edit challenges and learnings"></textarea>
+        </div>
+        <div class="project-section">
+          <h2>Next Steps / Future Work</h2>
+          <p id="modalNextSteps"></p>
+          <textarea id="editNextSteps" class="edit-textarea" placeholder="Next Steps / Future Work" aria-label="Edit next steps"></textarea>
+        </div>
+        <div class="project-section">
+          <h2>Links</h2>
+          <a id="modalGithubLink" class="button" href="#" target="_blank">View on GitHub</a>
+          <input type="url" id="editGithubLink" class="edit-input" placeholder="GitHub Link" aria-label="Edit GitHub link">
+          <a id="modalDemoLink" class="button" href="#" target="_blank">Live Demo</a>
+          <input type="url" id="editDemoLink" class="edit-input" placeholder="Live Demo Link" aria-label="Edit live demo link">
+        </div>
+        <div class="project-section">
+          <h2>Tags</h2>
+          <div id="modalTags" class="tags"></div>
+          <input type="text" id="editTags" class="edit-input" placeholder="Tags (comma-separated)" aria-label="Edit tags">
+        </div>
+        <button class="modal-save" id="saveModalChanges" aria-label="Save project changes">Save Changes</button>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>© 2025 Yashwanth Veluru. Built with Vision.</p>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lightgallery/2.7.0/lightgallery.min.js"></script>
+  <script>
+    // Initialize localStorage data
+    const defaultData = {
+      about: {
+        profilePic: 'https://via.placeholder.com/150',
+        bio: 'I’m Yashwanth Veluru, a Data Science graduate from the University of the Pacific. I fuse data-driven insights with technology to build solutions that captivate and perform. With a passion for innovation, I transform ideas into impactful realities.',
+        hobbies: 'When not analyzing data or coding, I’m exploring new tools, diving into machine learning advancements, or collaborating on open-source projects.',
+        skills: ['Data Science', 'Machine Learning', 'Web Development', 'Data Visualization']
+      },
+      projects: [
+        {
+          image: 'https://via.placeholder.com/450x350',
+          title: 'Predicting Student Graduation Outcomes',
+          summary: 'This project aimed to forecast student graduation likelihood using enrollment and grade data across 170+ students, helping academic advisors improve early intervention.',
+          problemStatement: 'Academic institutions struggled to identify students at risk of dropping out early, impacting retention rates. Advisors needed predictive insights to intervene effectively.',
+          datasetDetails: 'Used a university dataset from Kaggle with 170+ student records, including features like GPA, course load, and demographic data. Preprocessed by handling missing grades and encoding categorical variables.',
+          datasetFiles: [],
+          toolsTechnologies: 'Python, pandas, scikit-learn, XGBoost, SHAP',
+          workflow: 'EDA revealed GPA trends; engineered features like attendance rate; tested Logistic Regression, Random Forest, and XGBoost; chose XGBoost for 0.83 F1-score; evaluated with ROC AUC.',
+          visualizations: ['https://via.placeholder.com/600x400'],
+          resultsImpact: 'Achieved 81.4% accuracy and 0.83 F1-score, enabling advisors to target interventions, potentially increasing retention by 10%.',
+          challengesLearnings: 'Addressed imbalanced data with SMOTE; learned SHAP for model interpretability.',
+          nextSteps: 'Incorporate real-time data and deploy via Streamlit for advisor access.',
+          githubLink: 'https://github.com/yashwanth/student-graduation',
+          demoLink: '',
+          tags: 'Machine Learning, XGBoost, SHAP, Data Science'
+        },
+        {
+          image: 'https://via.placeholder.com/450x350',
+          title: 'Machine Learning Model',
+          summary: 'Built a model to predict customer churn, helping businesses retain clients.',
+          problemStatement: 'High churn rates reduced revenue; businesses needed to identify at-risk customers early.',
+          datasetDetails: 'Telco dataset with 7,000 records, features like tenure, contract type, and payment method. Handled outliers and normalized data.',
+          datasetFiles: [],
+          toolsTechnologies: 'Python, scikit-learn, TensorFlow, SHAP',
+          workflow: 'EDA identified tenure as key; engineered features like usage patterns; tested Logistic Regression and XGBoost; chose XGBoost for 0.83 F1-score.',
+          visualizations: ['https://via.placeholder.com/600x400'],
+          resultsImpact: 'Achieved 81.4% accuracy, reducing churn by 15% in simulations.',
+          challengesLearnings: 'Addressed imbalanced data with SMOTE; learned SHAP for interpretability.',
+          nextSteps: 'Deploy model via Flask for real-time predictions.',
+          githubLink: 'https://github.com/yashwanth/churn-model',
+          demoLink: '',
+          tags: 'Machine Learning, XGBoost, SHAP'
+        },
+        {
+          image: 'https://via.placeholder.com/450x350',
+          title: 'Data Visualization Portfolio',
+          summary: 'Created interactive visualizations to showcase data trends for public datasets.',
+          problemStatement: 'Stakeholders needed accessible visuals to understand complex datasets.',
+          datasetDetails: 'Used public datasets from Kaggle with 5,000 records, including economic and social metrics. Cleaned missing data and standardized formats.',
+          datasetFiles: [],
+          toolsTechnologies: 'JavaScript, D3.js, HTML, CSS',
+          workflow: 'EDA highlighted key trends; designed interactive charts with D3.js; evaluated usability with stakeholders.',
+          visualizations: ['https://via.placeholder.com/600x400'],
+          resultsImpact: 'Increased stakeholder engagement by 40% with interactive visuals.',
+          challengesLearnings: 'Optimized D3.js performance for large datasets.',
+          nextSteps: 'Add real-time data feeds.',
+          githubLink: 'https://github.com/yashwanth/viz-portfolio',
+          demoLink: '',
+          tags: 'D3.js, Data Visualization, JavaScript'
+        }
+      ],
+      testimonials: [
+        { quote: 'Yashwanth’s data solutions transformed our decision-making process. His expertise is unmatched!', author: 'Jane Doe, CEO' },
+        { quote: 'Working with Yashwanth was a game-changer. His visualizations made complex data accessible.', author: 'John Smith, Data Analyst' }
+      ]
+    };
+
+    let portfolioData = JSON.parse(localStorage.getItem('portfolioData')) || defaultData;
+    localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
+
+    // Load data from localStorage
+    function loadData() {
+      const data = JSON.parse(localStorage.getItem('portfolioData')) || defaultData;
+
+      // About section
+      document.querySelector('#about .profile-pic').src = data.about.profilePic;
+      document.getElementById('bio').textContent = data.about.bio;
+      document.getElementById('hobbies').textContent = data.about.hobbies;
+      const skillsContainer = document.getElementById('skills');
+      skillsContainer.innerHTML = '';
+      data.about.skills.forEach(skill => {
+        const span = document.createElement('span');
+        span.className = 'skill';
+        span.textContent = skill;
+        skillsContainer.appendChild(span);
+      });
+
+      // Projects section
+      const projectGrid = document.getElementById('projectGrid');
+      projectGrid.innerHTML = '';
+      data.projects.forEach((project, index) => {
+        const card = document.createElement('div');
+        card.className = 'project-card';
+        card.setAttribute('data-tilt', '');
+        card.setAttribute('data-tilt-max', '10');
+        card.setAttribute('data-project-id', index);
+        card.innerHTML = `
+          <img src="${project.image}" alt="${project.title}">
+          <h3>${project.title}</h3>
+          <p>${project.summary}</p>
+          <input type="file" accept="image/*" class="project-image-input" aria-label="Upload project image">
+          <button class="delete-button" aria-label="Delete project">Delete Project</button>
+        `;
+        projectGrid.appendChild(card);
+      });
+      if (typeof VanillaTilt !== 'undefined') {
+        VanillaTilt.init(document.querySelectorAll('.project-card'), {
+          max: 10,
+          speed: 400,
+          glare: true,
+          'max-glare': 0.5
+        });
+      }
+
+      // Testimonials section
+      const testimonialGrid = document.getElementById('testimonialGrid');
+      testimonialGrid.innerHTML = '';
+      data.testimonials.forEach(testimonial => {
+        const card = document.createElement('div');
+        card.className = 'testimonial-card';
+        card.innerHTML = `
+          <p class="quote">"${testimonial.quote}"</p>
+          <p class="author">${testimonial.author}</p>
+          <button class="delete-button" aria-label="Delete testimonial">Delete Testimonial</button>
+        `;
+        testimonialGrid.appendChild(card);
+      });
+    }
+
+    loadData();
+
+    // Theme toggle
+    const themeToggle = document.getElementById('themeToggle');
+    const body = document.body;
+    if (themeToggle) {
+      themeToggle.addEventListener('change', () => {
+        body.classList.toggle('dark-theme');
+        body.classList.toggle('light-theme');
+        localStorage.setItem('theme', body.classList.contains('light-theme') ? 'light' : 'dark');
+      });
+    }
+
+    // Load saved theme
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    body.classList.add(savedTheme + '-theme');
+
+    // Edit mode toggle with password
+    const editToggle = document.getElementById('editToggle');
+    const editableElements = document.querySelectorAll('#bio, #hobbies, .skill, .project-card h3, .project-card p, .testimonial-card .quote, .testimonial-card .author');
+    const profilePicInput = document.getElementById('profilePicInput');
+    const saveButtons = document.querySelectorAll('.save-changes');
+    const addButtons = document.querySelectorAll('.add-button');
+    const addForms = document.querySelectorAll('.add-form');
+    const modalSaveButton = document.getElementById('saveModalChanges');
+    const editInputs = document.querySelectorAll('.edit-input, .edit-textarea, .edit-file');
+    const EDIT_PASSWORD = 'yashwanth123';
+
+    function toggleEditMode(isEditing) {
+      editableElements.forEach(el => {
+        el.setAttribute('contenteditable', isEditing);
+        el.style.cursor = isEditing ? 'text' : 'default';
+      });
+      profilePicInput.classList.toggle('visible', isEditing);
+      document.querySelectorAll('.project-image-input').forEach(input => input.classList.toggle('visible', isEditing));
+      saveButtons.forEach(btn => btn.classList.toggle('visible', isEditing));
+      addButtons.forEach(btn => btn.classList.toggle('visible', isEditing));
+      addForms.forEach(form => form.classList.toggle('visible', isEditing));
+      document.querySelectorAll('.delete-button').forEach(btn => btn.classList.toggle('visible', isEditing));
+      modalSaveButton.classList.toggle('visible', isEditing);
+      editInputs.forEach(input => input.classList.toggle('visible', isEditing));
+    }
+
+    if (editToggle) {
+      editToggle.addEventListener('change', () => {
+        if (editToggle.checked) {
+          const password = prompt('Enter password to enable Edit Mode:');
+          if (password !== EDIT_PASSWORD) {
+            alert('Incorrect password!');
+            editToggle.checked = false;
+            return;
+          }
+          toggleEditMode(true);
+        } else {
+          toggleEditMode(false);
+        }
+      });
+    }
+
+    // Project modal handling
+    const projectModal = document.getElementById('projectModal');
+    const closeModal = document.getElementById('closeModal');
+    let currentProjectId = null;
+
+    function showProjectDetails(projectId) {
+      const project = portfolioData.projects[projectId];
+      if (!project) return;
+      currentProjectId = projectId;
+
+      document.getElementById('modalProjectImage').src = project.image;
+      document.getElementById('modalProjectTitle').textContent = project.title;
+      document.getElementById('editProjectTitle').value = project.title;
+      document.getElementById('modalProjectSummary').textContent = project.summary;
+      document.getElementById('editProjectSummary').value = project.summary;
+      document.getElementById('modalProblemStatement').textContent = project.problemStatement;
+      document.getElementById('editProblemStatement').value = project.problemStatement;
+      document.getElementById('modalDatasetDetails').textContent = project.datasetDetails;
+      document.getElementById('editDatasetDetails').value = project.datasetDetails;
+      document.getElementById('modalToolsTechnologies').textContent = project.toolsTechnologies;
+      document.getElementById('editToolsTechnologies').value = project.toolsTechnologies;
+      document.getElementById('modalWorkflow').textContent = project.workflow;
+      document.getElementById('editWorkflow').value = project.workflow;
+      document.getElementById('modalResultsImpact').textContent = project.resultsImpact;
+      document.getElementById('editResultsImpact').value = project.resultsImpact;
+      document.getElementById('modalChallengesLearnings').textContent = project.challengesLearnings;
+      document.getElementById('editChallengesLearnings').value = project.challengesLearnings;
+      document.getElementById('modalNextSteps').textContent = project.nextSteps;
+      document.getElementById('editNextSteps').value = project.nextSteps;
+
+      const githubLink = document.getElementById('modalGithubLink');
+      const demoLink = document.getElementById('modalDemoLink');
+      githubLink.style.display = project.githubLink ? 'inline-block' : 'none';
+      document.getElementById('editGithubLink').value = project.githubLink;
+      if (project.githubLink) githubLink.href = project.githubLink;
+      demoLink.style.display = project.demoLink ? 'inline-block' : 'none';
+      document.getElementById('editDemoLink').value = project.demoLink;
+      if (project.demoLink) demoLink.href = project.demoLink;
+
+      const datasetFilesContainer = document.getElementById('modalDatasetFiles');
+      datasetFilesContainer.innerHTML = '';
+      if (project.datasetFiles && project.datasetFiles.length) {
+        project.datasetFiles.forEach((file, index) => {
+          const link = document.createElement('a');
+          link.href = file.data;
+          link.download = file.name;
+          link.textContent = file.name;
+          datasetFilesContainer.appendChild(link);
+        });
+      } else {
+        datasetFilesContainer.innerHTML = '<p>No dataset files available.</p>';
+      }
+
+      const tagsContainer = document.getElementById('modalTags');
+      tagsContainer.innerHTML = '';
+      document.getElementById('editTags').value = project.tags;
+      if (project.tags) {
+        project.tags.split(',').forEach(tag => {
+          const span = document.createElement('span');
+          span.className = 'tag';
+          span.textContent = tag.trim();
+          tagsContainer.appendChild(span);
+        });
+      }
+
+      const gallery = document.getElementById('modalGallery');
+      gallery.innerHTML = '';
+      if (project.visualizations && project.visualizations.length) {
+        project.visualizations.forEach(src => {
+          if (src.endsWith('.pdf')) {
+            const link = document.createElement('a');
+            link.href = src;
+            link.download = 'visualization.pdf';
+            link.textContent = 'Download PDF Visualization';
+            gallery.appendChild(link);
+          } else {
+            const img = document.createElement('img');
+            img.src = src;
+            img.alt = 'Project visualization';
+            gallery.appendChild(img);
+          }
+        });
+        lightGallery(gallery, {
+          thumbnail: true,
+          animateThumb: true,
+          showThumbByDefault: true,
+          selector: 'img'
+        });
+      } else {
+        gallery.innerHTML = '<p>No visualizations available.</p>';
+      }
+
+      projectModal.classList.add('visible');
+      body.classList.add('sidebar-active');
+    }
+
+    document.getElementById('projectGrid').addEventListener('click', (e) => {
+      const card = e.target.closest('.project-card');
+      if (card && !e.target.classList.contains('delete-button') && !e.target.classList.contains('project-image-input')) {
+        const projectId = card.getAttribute('data-project-id');
+        showProjectDetails(projectId);
+      }
+    });
+
+    if (closeModal) {
+      closeModal.addEventListener('click', () => {
+        projectModal.classList.remove('visible');
+        body.classList.remove('sidebar-active');
+        currentProjectId = null;
+      });
+    }
+
+    // Save modal changes
+    document.getElementById('saveModalChanges').addEventListener('click', () => {
+      if (currentProjectId === null) return;
+
+      const thumbnailFile = document.getElementById('editProjectImage').files[0];
+      const visualizationFiles = document.getElementById('editVisualizations').files;
+      const datasetFiles = document.getElementById('editDatasetFiles').files;
+
+      const visualizationPromises = Array.from(visualizationFiles).map(file => {
+        if (file.size > 500000) {
+          alert(`Visualization file ${file.name} exceeds 500KB. Please use a smaller file.`);
+          return Promise.reject();
+        }
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => resolve({ name: file.name, data: event.target.result });
+          reader.readAsDataURL(file);
+        });
+      });
+
+      const datasetPromises = Array.from(datasetFiles).map(file => {
+        if (file.size > 500000) {
+          alert(`Dataset file ${file.name} exceeds 500KB. Please use a smaller file.`);
+          return Promise.reject();
+        }
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => resolve({ name: file.name, data: event.target.result });
+          reader.readAsDataURL(file);
+        });
+      });
+
+      Promise.all([...visualizationPromises, ...datasetPromises]).then(results => {
+        const newVisualizations = results.slice(0, visualizationFiles.length).map(r => r.data);
+        const newDatasetFiles = results.slice(visualizationFiles.length).map(r => r);
+
+        const updateProject = () => {
+          portfolioData.projects[currentProjectId] = {
+            ...portfolioData.projects[currentProjectId],
+            image: thumbnailFile ? newThumbnail : portfolioData.projects[currentProjectId].image,
+            title: document.getElementById('editProjectTitle').value,
+            summary: document.getElementById('editProjectSummary').value,
+            problemStatement: document.getElementById('editProblemStatement').value,
+            datasetDetails: document.getElementById('editDatasetDetails').value,
+            datasetFiles: [...(portfolioData.projects[currentProjectId].datasetFiles || []), ...newDatasetFiles],
+            toolsTechnologies: document.getElementById('editToolsTechnologies').value,
+            workflow: document.getElementById('editWorkflow').value,
+            visualizations: [...(portfolioData.projects[currentProjectId].visualizations || []), ...newVisualizations],
+            resultsImpact: document.getElementById('editResultsImpact').value,
+            challengesLearnings: document.getElementById('editChallengesLearnings').value,
+            nextSteps: document.getElementById('editNextSteps').value,
+            githubLink: document.getElementById('editGithubLink').value,
+            demoLink: document.getElementById('editDemoLink').value,
+            tags: document.getElementById('editTags').value
+          };
+          localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
+          loadData();
+          showProjectDetails(currentProjectId);
+          alert('Project changes saved!');
+        };
+
+        if (thumbnailFile) {
+          if (thumbnailFile.size > 500000) {
+            alert('Thumbnail image size exceeds 500KB. Please use a smaller image.');
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const newThumbnail = event.target.result;
+            updateProject();
+          };
+          reader.readAsDataURL(thumbnailFile);
+        } else {
+          updateProject();
+        }
+      }).catch(() => {});
+    });
+
+    // Save about section
+    document.getElementById('saveAbout').addEventListener('click', () => {
+      portfolioData.about.bio = document.getElementById('bio').textContent;
+      portfolioData.about.hobbies = document.getElementById('hobbies').textContent;
+      portfolioData.about.skills = Array.from(document.querySelectorAll('#skills .skill')).map(span => span.textContent);
+      localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
+      alert('About section saved!');
+    });
+
+    // Save projects section
+    document.getElementById('saveProjects').addEventListener('click', () => {
+      portfolioData.projects = Array.from(document.querySelectorAll('.project-card')).map(card => {
+        const project = portfolioData.projects[Array.from(document.querySelectorAll('.project-card')).indexOf(card)];
+        return {
+          ...project,
+          image: card.querySelector('img').src,
+          title: card.querySelector('h3').textContent,
+          summary: card.querySelector('p').textContent
+        };
+      });
+      localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
+      alert('Projects section saved!');
+    });
+
+    // Add new project
+    document.getElementById('addProjectButton').addEventListener('click', () => {
+      document.getElementById('addProjectForm').classList.toggle('visible');
+    });
+
+    document.getElementById('submitProject').addEventListener('click', () => {
+      const title = document.getElementById('projectTitle').value;
+      const summary = document.getElementById('projectSummary').value;
+      const problemStatement = document.getElementById('problemStatement').value;
+      const datasetDetails = document.getElementById('datasetDetails').value;
+      const datasetFilesInput = document.getElementById('datasetFiles');
+      const toolsTechnologies = document.getElementById('toolsTechnologies').value;
+      const workflow = document.getElementById('workflow').value;
+      const visualizationsInput = document.getElementById('visualizations');
+      const resultsImpact = document.getElementById('resultsImpact').value;
+      const challengesLearnings = document.getElementById('challengesLearnings').value;
+      const nextSteps = document.getElementById('nextSteps').value;
+      const githubLink = document.getElementById('githubLink').value;
+      const demoLink = document.getElementById('demoLink').value;
+      const tags = document.getElementById('tags').value;
+      const fileInput = document.getElementById('projectImage');
+
+      if (!title || !summary || !problemStatement || !datasetDetails || !toolsTechnologies || !workflow || !resultsImpact || !challengesLearnings || !nextSteps || !fileInput.files[0]) {
+        alert('Please fill all required fields!');
+        return;
+      }
+
+      const file = fileInput.files[0];
+      if (file.size > 500000) {
+        alert('Thumbnail image size exceeds 500KB. Please use a smaller image.');
+        return;
+      }
+
+      const visualizationFiles = visualizationsInput.files;
+      const visualizationPromises = Array.from(visualizationFiles).map(file => {
+        if (file.size > 500000) {
+          alert(`Visualization image ${file.name} exceeds 500KB. Please use smaller images.`);
+          return Promise.reject();
+        }
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => resolve(event.target.result);
+          reader.readAsDataURL(file);
+        });
+      });
+
+      const datasetFiles = datasetFilesInput.files;
+      const datasetPromises = Array.from(datasetFiles).map(file => {
+        if (file.size > 500000) {
+          alert(`Dataset file ${file.name} exceeds 500KB. Please use a smaller file.`);
+          return Promise.reject();
+        }
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (event) => resolve({ name: file.name, data: event.target.result });
+          reader.readAsDataURL(file);
+        });
+      });
+
+      Promise.all([...visualizationPromises, ...datasetPromises]).then(results => {
+        const visualizations = results.slice(0, visualizationFiles.length);
+        const datasetFiles = results.slice(visualizationFiles.length);
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          portfolioData.projects.push({
+            image: event.target.result,
+            title,
+            summary,
+            problemStatement,
+            datasetDetails,
+            datasetFiles,
+            toolsTechnologies,
+            workflow,
+            visualizations,
+            resultsImpact,
+            challengesLearnings,
+            nextSteps,
+            githubLink,
+            demoLink,
+            tags
+          });
+          localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
+          loadData();
+          document.getElementById('addProjectForm').classList.remove('visible');
+          document.getElementById('addProjectForm').reset();
+          alert('New project added!');
+        };
+        reader.readAsDataURL(file);
+      }).catch(() => {});
+    });
+
+    // Save testimonials section
+    document.getElementById('saveTestimonials').addEventListener('click', () => {
+      portfolioData.testimonials = Array.from(document.querySelectorAll('.testimonial-card')).map(card => ({
+        quote: card.querySelector('.quote').textContent.replace(/^"|"$/g, ''),
+        author: card.querySelector('.author').textContent
+      }));
+      localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
+      alert('Testimonials section saved!');
+    });
+
+    // Add new testimonial
+    document.getElementById('addTestimonialButton').addEventListener('click', () => {
+      document.getElementById('addTestimonialForm').classList.toggle('visible');
+    });
+
+    document.getElementById('submitTestimonial').addEventListener('click', () => {
+      const quote = document.getElementById('testimonialQuote').value;
+      const author = document.getElementById('testimonialAuthor').value;
+      if (!quote || !author) {
+        alert('Please fill all fields!');
+        return;
+      }
+      portfolioData.testimonials.push({ quote, author });
+      localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
+      loadData();
+      document.getElementById('addTestimonialForm').classList.remove('visible');
+      document.getElementById('testimonialQuote').value = '';
+      document.getElementById('testimonialAuthor').value = '';
+      alert('New testimonial added!');
+    });
+
+    // Delete project or testimonial
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('delete-button')) {
+        const card = e.target.closest('.project-card, .testimonial-card');
+        const isProject = card.classList.contains('project-card');
+        const index = Array.from(card.parentElement.children).indexOf(card);
+        if (confirm(`Are you sure you want to delete this ${isProject ? 'project' : 'testimonial'}?`)) {
+          if (isProject) {
+            portfolioData.projects.splice(index, 1);
+          } else {
+            portfolioData.testimonials.splice(index, 1);
+          }
+          localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
+          loadData();
+          alert(`${isProject ? 'Project' : 'Testimonial'} deleted!`);
+        }
+      }
+    });
+
+    // Handle profile picture upload
+    document.getElementById('profilePicInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        if (file.size > 500000) {
+          alert('Image size exceeds 500KB. Please use a smaller image.');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          portfolioData.about.profilePic = event.target.result;
+          document.querySelector('#about .profile-pic').src = event.target.result;
+          localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Handle project image uploads
+    document.addEventListener('change', (e) => {
+      if (e.target.classList.contains('project-image-input')) {
+        const file = e.target.files[0];
+        if (file) {
+          if (file.size > 500000) {
+            alert('Image size exceeds 500KB. Please use a smaller image.');
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = e.target.previousElementSibling.previousElementSibling;
+            img.src = event.target.result;
+            const index = Array.from(document.querySelectorAll('.project-card')).indexOf(e.target.closest('.project-card'));
+            portfolioData.projects[index].image = event.target.result;
+            localStorage.setItem('portfolioData', JSON.stringify(portfolioData));
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    });
+
+    // Formspree submission
+    const contactForm = document.getElementById('contactForm');
+    if (contactForm) {
+      contactForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        fetch(this.action, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Accept': 'application/json'
+          }
+        }).then(response => {
+          if (response.ok) {
+            alert('Message sent successfully!');
+            contactForm.reset();
+          } else {
+            alert('Error sending message. Please try again.');
+          }
+        }).catch(() => {
+          alert('Error sending message. Please try again.');
+        });
+      });
+    }
+
+    // Smooth scrolling
+    document.querySelectorAll('.sidebar a').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const section = document.querySelector(this.getAttribute('href'));
+        if (section) {
+          section.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    });
+
+    // Scroll animations
+    const sections = document.querySelectorAll('section');
+    const cards = document.querySelectorAll('.project-card, .testimonial-card');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry, index) => {
+        if (entry.isIntersecting) {
+          entry.target.style.opacity = 1;
+          entry.target.style.transform = 'translateY(0)';
+          entry.target.style.transitionDelay = `${index * 0.1}s`;
+        }
+      });
+    }, { threshold: 0.2 });
+
+    sections.forEach(section => {
+      section.style.opacity = 0;
+      section.style.transform = 'translateY(30px)';
+      section.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
+      observer.observe(section);
+    });
+
+    cards.forEach(card => {
+      card.style.opacity = 0;
+      card.style.transform = 'translateY(20px)';
+      card.style.transition = 'opacity 0.5s ease-out, transform 0.5s ease-out';
+      observer.observe(card);
+    });
+
+    // Custom cursor
+    const cursor = document.querySelector('.cursor');
+    if (cursor) {
+      document.addEventListener('mousemove', e => {
+        cursor.style.left = `${e.clientX}px`;
+        cursor.style.top = `${e.clientY}px`;
+      });
+
+      document.querySelectorAll('a, button, .project-card, .testimonial-card, .skill').forEach(el => {
+        el.addEventListener('mouseenter', () => cursor.classList.add('hovered'));
+        el.addEventListener('mouseleave', () => cursor.classList.remove('hovered'));
+      });
+    }
+
+    // Parallax effect for home section
+    const homeBg = document.querySelector('.home-bg');
+    if (homeBg) {
+      window.addEventListener('scroll', () => {
+        const scrollPos = window.scrollY;
+        homeBg.style.transform = `translateY(${scrollPos * 0.3}px)`;
+      });
+    }
+
+    // Mobile nav toggle
+    const mobileNavToggle = document.querySelector('.mobile-nav-toggle');
+    const sidebar = document.querySelector('.sidebar');
+    let isToggling = false;
+    if (mobileNavToggle && sidebar) {
+      mobileNavToggle.addEventListener('click', () => {
+        if (isToggling) return;
+        isToggling = true;
+        sidebar.classList.toggle('active');
+        body.classList.toggle('sidebar-active');
+        mobileNavToggle.textContent = sidebar.classList.contains('active') ? '✕' : '☰';
+        setTimeout(() => { isToggling = false; }, 300);
+      });
+    }
+
+    // Set accent color RGB for CSS
+    const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim();
+    const rgb = accentColor.match(/\d+/g);
+    if (rgb) {
+      document.documentElement.style.setProperty('--accent-color-rgb', rgb.join(', '));
+    }
+  </script>
+</body>
+</html>
